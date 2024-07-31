@@ -27,9 +27,17 @@ export const getCurrentProfile = () => async dispatch => {
 };
 
 // Get All Profiles
-export const getProfiles = () => async dispatch => {
+export const getProfiles = (searchParams) => async dispatch => {
   try {
-    const res = await axios.get("/api/profiles");
+    dispatch({ type: PROFILE_ERROR, payload: null })
+    const queryString = new URLSearchParams(searchParams).toString();
+    let res
+    if (queryString){
+      res = await axios.get(`/api/profiles/?${queryString}`)
+    }
+    else{
+      res = await axios.get(`/api/profiles/`)
+    }
     dispatch({ type: GET_PROFILES, payload: res.data });
   } catch (err) {
     dispatch({

@@ -26,7 +26,7 @@ urlpatterns = [
     path('posts/comments/<int:id>', CommentView.as_view()),
 
     path('profile', ProfileView.as_view()),
-    path('profiles', ProfilesView.as_view()),
+    path('profiles/', ProfilesView.as_view()),
     path('profile/me', ProfileView.as_view()),
     path('profile/experience', ExperienceView.as_view()),
     path('profile/experience/<int:e_id>', ExperienceView.as_view()),

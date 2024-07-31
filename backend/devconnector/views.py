@@ -50,14 +50,12 @@ class GetAuthUserView(APIView):
         user = User.objects.get(id=request.user.id)
         data = UserSerializer(user).data
         return Response(data)
-        
     def post(self, request):
         email = request.data.get('email')
         password = request.data.get('password')
 
         if email == "" or password == "":
             return Response({'error': 'Please provide both email and password'},status=status.HTTP_400_BAD_REQUEST)
-        
         user = authenticate(username=email, password=password)
 
         if not user:
@@ -67,10 +65,43 @@ class GetAuthUserView(APIView):
         return Response({'token': token.key}, status=status.HTTP_200_OK)
 
 class ProfilesView(APIView):
-     def get(self, request):
-        profiles = Profile.objects.all()
-        profile_data = GetProfileSerializer(profiles, many=True).data
-        return Response(data=profile_data, status=status.HTTP_200_OK)
+    def get(self, request):
+        if not request.query_params:
+            serializer = GetProfileSerializer(Profile.objects.all(), many=True)
+            return Response(data=serializer.data, status=status.HTTP_200_OK)
+        else:
+            username = request.query_params.get('name')
+            email = request.query_params.get('email')
+            company = request.query_params.get('company')
+            location = request.query_params.get('location')
+
+            def search_profiles(filter_kwargs):
+                return Profile.objects.filter(**filter_kwargs)
+
+            search_terms = [
+                {'user__name__icontains': username},
+                {'user__email__icontains': email},
+                {'company__icontains': company},
+                {'location__icontains': location},
+            ]
+
+            profiles_query = None
+            for terms in search_terms:
+
+                if not any(terms.values()):
+                    continue
+
+                profiles_query = search_profiles(terms)
+                if profiles_query.exists():
+                    break
+
+            if not profiles_query or not profiles_query.exists():
+                return Response(data={'error': "No profiles found"}, status=status.HTTP_404_NOT_FOUND)
+
+            serializer = GetProfileSerializer(profiles_query, many=True)
+            return Response(data=serializer.data, status=status.HTTP_200_OK)
+
+
 
 class ProfileView(APIView):
     authentication_classes = (TokenAuthentication,)
@@ -81,7 +112,6 @@ class ProfileView(APIView):
            profile = request.user.profile
         except ObjectDoesNotExist:
             return Response(data={'error': "No profile found"}, status=status.HTTP_404_NOT_FOUND)
-        
         profile_data = GetProfileSerializer(request.user.profile).data
         return Response(data=profile_data, status=status.HTTP_200_OK)
 
@@ -92,11 +122,8 @@ class ProfileView(APIView):
             serializer = ProfileSerializer(instance, data=request.data)
         else:
             serializer = ProfileSerializer(data=request.data)
-        
         if serializer.is_valid():
-            
             serializer.save(user=request.user)
-            
             profile_data = GetProfileSerializer(request.user.profile).data
             return Response(data=profile_data, status=status.HTTP_200_OK)
         else:
@@ -114,11 +141,9 @@ class SingleProfileView(APIView):
             user = User.objects.get(id=kwargs.get('id'))
             profile_data = GetProfileSerializer(user.profile).data
             return Response(data=profile_data, status=status.HTTP_200_OK)
-            
         except ObjectDoesNotExist:
             return Response(data={'error': "No profile found"}, status=status.HTTP_404_NOT_FOUND)
-       
-        
+
 class ExperienceView(APIView):
     authentication_classes = (TokenAuthentication,)
     permission_classes = (IsAuthenticated,)
@@ -172,7 +197,7 @@ class GitProfileView(APIView):
         client_secret = settings.GIT_CLIENT_SECRET
         uri = f'https://api.github.com/users/{username}/repos?per_page=5&sort=created:asc&\
             client_id={client_id}&client_secret={client_secret}'
-        
+
         response = requests.get(uri)
         if response.status_code != 200:
             return Response(data={'error': "No Github account found"}, status=status.HTTP_404_NOT_FOUND)
@@ -256,7 +281,7 @@ class CommentView(APIView):
             else:
                 return Response({'error': "No post found"}, status=status.HTTP_404_NOT_FOUND)
         return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-            
+
     def delete(self, request, *args, **kwargs):
         comment_id = kwargs.get('id')
         try:
@@ -269,4 +294,3 @@ class CommentView(APIView):
 
         except ObjectDoesNotExist:
             return Response({'error': "No comment found"}, status=status.HTTP_404_NOT_FOUND)
-
